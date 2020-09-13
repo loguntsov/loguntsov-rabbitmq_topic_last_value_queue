@@ -29,9 +29,9 @@ Step 2: Updating element {key_1, new_value_1}:
 Before using you must define this queue. Queue will be created by this module if you will provide specific key for argument (options) of creation command:
 ``x-last-value-per-topic = 'enabled'``
 
-## Put element
+## Puting of element
 
-You must provide key of element in routing_key options within puttin operation.
+You must provide key of element in routing_key options within putting operation.
 
 ## Examples of code
 
