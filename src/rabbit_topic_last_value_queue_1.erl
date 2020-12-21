@@ -1434,6 +1434,7 @@ a(State = #vqstate { q1 = Q1, q2 = Q2, delta = Delta, q3 = Q3, q4 = Q4,
   E4 = ltq_queue:is_empty(Q4),
   LZ = Len == 0,
 
+try
   %% if q1 has messages then q3 cannot be empty. See publish/6.
   true = E1 or not E3,
   %% if q2 has messages then we have messages in delta (paged to
@@ -1444,7 +1445,7 @@ a(State = #vqstate { q1 = Q1, q2 = Q2, delta = Delta, q3 = Q3, q4 = Q4,
   %% are always kept on RAM.
   true = ED or not E3,
   %% if the queue length is 0, then q3 and q4 must be empty.
-  Status = info(backing_queue_status, State),
+  %%Status = info(backing_queue_status, State),
   %%rabbit_log:info("Len = ~p, Len Q1 = ~p, Q2 = ~p, Q3 = ~p, Len Q4 = ~p Status = ~p", [ Len, ltq_queue:len(Q1), ltq_queue:len(Q2), ltq_queue:len(Q3), ltq_queue:len(Q4), Status ]),
   true = LZ == (E3 and E4),
 
@@ -1456,9 +1457,14 @@ a(State = #vqstate { q1 = Q1, q2 = Q2, delta = Delta, q3 = Q3, q4 = Q4,
   true = RamMsgCount     >= 0,
   true = RamMsgCount     =< Len,
   true = RamBytes        >= 0,
-  true = RamBytes        =< Bytes + UnackedBytes,
-
+  true = RamBytes        =< Bytes + UnackedBytes
+catch
+  E:R:Stacktrace ->
+    rabbit_log:error("Bad state ~p:~p = ~p ========= ~p", [ E, R, Stacktrace, State ]),
+    erlang:raise(E, R, Stacktrace)
+end,
   State;
+
 a(State = #vqstate { q1 = Q1, q2 = Q2, delta = Delta, q3 = Q3, q4 = Q4,
   mode             = lazy,
   len              = Len,
@@ -1879,14 +1885,14 @@ stats0({DeltaReady, DeltaUnacked, ReadyMsgPaged},
     0                    -> 0
   end,
   DeltaPersistent = DeltaTotal * one_if(MsgStatus#msg_status.is_persistent),
-  State#vqstate{len               = ReadyCount      + DeltaReady,
+  a(State#vqstate{len               = ReadyCount      + DeltaReady,
     ram_msg_count     = RamReadyCount   + DeltaRamReady,
     persistent_count  = PersistentCount + DeltaPersistent,
     bytes             = ReadyBytes      + DeltaReady       * S,
     unacked_bytes     = UnackedBytes    + DeltaUnacked     * S,
     ram_bytes         = RamBytes        + DeltaRam         * S,
     persistent_bytes  = PersistentBytes + DeltaPersistent  * S,
-    delta_transient_bytes = DeltaBytes  + DeltaPaged * one_if(not MsgStatus#msg_status.is_persistent) * S}.
+    delta_transient_bytes = DeltaBytes  + DeltaPaged * one_if(not MsgStatus#msg_status.is_persistent) * S}).
 
 msg_size(#msg_status{msg_props = #message_properties{size = Size}}) -> Size.
 
@@ -3391,7 +3397,7 @@ ltq_queue_peek_r(Q) ->
   end.
 
 ltq_queue_foldl(Fun, Acc, Q) ->
-  ltq_queue:foldl(Q, Acc, fun(Key, Value, A) ->
+  ltq_queue:foldl(Q, Acc, fun(_Key, Value, A) ->
     Fun(Value, A)
   end).
 
